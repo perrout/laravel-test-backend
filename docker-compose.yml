@@ -31,3 +31,13 @@ services:
       - "80:8080"
     links:
       - mysql
+
+  # Laravel Queues
+  queue:
+    image: ambientum/php:7.2
+    container_name: test-queue
+    command: php artisan queue:listen database
+    volumes:
+      - .:/var/www/app
+    links:
+      - mysql
