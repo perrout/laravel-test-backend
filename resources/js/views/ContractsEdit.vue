@@ -313,8 +313,8 @@ export default {
 							title: response.data.message,
 							type: 'success'
 						});
-						this.contract = response.data.data;
-						this.fetchPropertiesFromApi();
+						// this.contract = response.data.data;
+						// this.fetchPropertiesFromApi();
 					})
 					.catch((e) => {
 						clearTimeout( errorTimer );
