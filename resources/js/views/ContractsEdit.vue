@@ -1,26 +1,14 @@
 <template>
 	<v-card>
-		<v-card-title>
-			<div class="text-h5 font-weight-bold text-uppercase">
-				Editar contrato
-			</div>
-			<v-spacer></v-spacer>
-			<v-btn 
-				color="secundary"
-				to="/contracts">
-				<v-icon class="pr-1">mdi-arrow-left</v-icon>Voltar
-			</v-btn>
-		</v-card-title>
-		<v-divider class="py-2"></v-divider>
+		<PageHeader	
+			title="Editar contrato"
+			action="/contracts"
+			actionColor="secundary"
+			actionIcon="mdi-arrow-left"
+			actionText="Voltar"
+			:loading="loading"
+		/>
 		<v-card-text class="pt-0">
-			<v-alert
-				:value="true"
-				type="info"
-				v-if="message" 
-			>
-				{{ message }}
-			</v-alert>
-
 			<div v-if="validationErrors">
 				<v-alert 
 					type="error"
@@ -50,6 +38,7 @@
 							clearable
 							required
 							:error-messages="propertyErrors"
+        					:search-input.sync="propertySearch"
 							@input="$v.contract.property_id.$touch()"
 							@blur="$v.contract.property_id.$touch()"
 						></v-autocomplete>
@@ -159,9 +148,9 @@
 						<v-btn
 							color="primary"
 							type="submit"
-							:disabled="saving"
+							:disabled="loading"
 						>
-							<v-icon class="pr-1">mdi-content-save</v-icon>{{ saving ? 'Salvando...' : 'Salvar' }}
+							<v-icon class="pr-1">mdi-content-save</v-icon>{{ loading ? 'Salvando...' : 'Salvar' }}
 						</v-btn>
 					</v-col>
 				</v-row>
@@ -173,11 +162,14 @@
 <script>
 import { validationMixin } from 'vuelidate';
 import { required, maxLength, email } from 'vuelidate/lib/validators';
+import PageHeader from '../components/PageHeader';
 import api from '../api/api';
 
 export default {
+	components: {
+		PageHeader,
+	},
 	mixins: [ validationMixin ],
-
 	validations: {
 		contract: {
 			property_id: { required },
@@ -187,12 +179,10 @@ export default {
 			name: { required }
 		}
 	},
-
 	data: () => ({
 		route: 'contracts',
         properties: [],
-		saving: false,
-		message: false,
+		loading: false,
 		errors: false,
 		contract: {
 			id: null,
@@ -202,7 +192,8 @@ export default {
 			email: '',
 			name: '',
 			description: '',
-		}
+		},
+		propertySearch: null
 	}),
 	computed: {
 		documentLabel() {
@@ -248,22 +239,59 @@ export default {
 		},
 	},
 	created() {
-		api.all( 'properties' )
-			.then((response) => {
-				this.properties = response.data.data;
-			});
-
-		api.find( this.route, this.$route.params.id )
-			.then((response) => {
-				this.loaded = true;
-				console.log(response.data.data)
-				this.contract = response.data.data;
-			})
-			.catch((err) => {
-				this.$router.push({ name: '404' });
-			});;
+		this.loading = true;
+		this.fetchPropertiesFromApi();
+		this.fetchDataFromApi();
+	},
+    watch: {
+		propertySearch( val ) {
+			if (this.loading) return;
+			this.fetchPropertiesFromApi( val );
+		}
 	},
 	methods: {
+		fetchPropertiesFromApi( val = false ) {
+			this.loading = true;
+			const params = {
+				doesntHave: 'contract',
+				doesntHaveIgnore: this.$route.params.id,
+				sortBy: 'full_address'
+			}
+			if ( val ) {
+				Object.assign( params, {
+					search: val,
+					searchColumn: 'address',
+				});
+			}
+			api.all( 'properties', { params } )
+				.then((response) => {
+					this.properties = response.data.data;
+				})
+				.catch((err) => {
+					this.$notify({
+						group: 'message',
+						title: 'Ops! Ocorreu um problema ao coletar propriedades.',
+						type: 'error'
+					});
+				})
+				.finally(() => (this.loading = false));
+		},
+		fetchDataFromApi() {
+			this.loading = true;
+			api.find( this.route, this.$route.params.id )
+				.then((response) => {
+					this.contract = response.data.data;
+				})
+				.catch((err) => {
+					this.$notify({
+						group: 'message',
+						title: 'Ops! O contrato não existe.',
+						type: 'error'
+					});
+					this.$router.push({ name: '404' });
+				})
+				.finally(() => (this.loading = false));
+		},
 		submit () {
 			this.$v.$touch();
 			if (this.$v.$invalid) {
@@ -276,21 +304,24 @@ export default {
 					}
 				}
 			} else {
-				this.saving = true;
-				this.message = false;
+				let errorTimer = null;
+				this.loading = true;
 				api.update( this.route, this.contract.id, this.contract )
 					.then((response) => {
-						this.message = response.data.message;
+						this.$notify({
+							group: 'message',
+							title: response.data.message,
+							type: 'success'
+						});
 						this.contract = response.data.data;
-						setTimeout(() => this.message = null, 5000);
+						this.fetchPropertiesFromApi();
 					})
 					.catch((e) => {
-						this.saving = false;
-						this.alert = true;
+						clearTimeout( errorTimer );
 						this.errors = e.response.data;
-						setTimeout(() => this.errors = null, 5000);
+						errorTimer = setTimeout(() => this.errors = null, 5000);
 					})
-					.then( () => this.saving = false )
+          			.finally(() => (this.loading = false));
 			}
 		},
 	},

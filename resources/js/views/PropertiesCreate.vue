@@ -6,6 +6,7 @@
 			actionColor="secundary"
 			actionIcon="mdi-arrow-left"
 			actionText="Voltar"
+			:loading="loading"
 		/>
 		<v-card-text class="pt-0">
 			<div v-if="validationErrors">
@@ -45,6 +46,8 @@
 							ref="postal"
 							label="CEP"
 							v-model="property.postal"
+							v-mask="'#####-###'"
+            				@blur="onPostalChange"
 						></v-text-field>
 					</v-col>
 					<v-col
@@ -146,9 +149,9 @@
 						<v-btn
 							color="primary"
 							type="submit"
-							:disabled="saving"
+							:disabled="loading"
 						>
-							<v-icon class="pr-1">mdi-content-save</v-icon>{{ saving ? 'Salvando...' : 'Salvar' }}
+							<v-icon class="pr-1">mdi-content-save</v-icon>{{ loading ? 'Salvando...' : 'Salvar' }}
 						</v-btn>
 					</v-col>
 				</v-row>
@@ -162,6 +165,7 @@ import { validationMixin } from 'vuelidate';
 import { required, maxLength, email } from 'vuelidate/lib/validators';
 import PageHeader from '../components/PageHeader';
 import api from '../api/api';
+import apiPostal from '../api/apiPostal';
 
 export default {
 	components: {
@@ -179,7 +183,7 @@ export default {
 	},
 	data: () => ({
 		route: 'properties',
-		saving: false,
+		loading: false,
 		errors: false,
 		submitted: false,
 		property: {
@@ -236,6 +240,42 @@ export default {
 	},
 
 	methods: {
+		onPostalChange () {
+			let postcode = this.$refs.postal.value;
+			apiPostal.get( postcode )
+					.then((response) => {
+						if ( !response.data.erro ) {
+							Object.assign(this.property, {
+								address: response.data.logradouro,
+								number: '',
+								secondary_address: '',
+								neighborhood: response.data.bairro,
+								city: response.data.localidade,
+								state: response.data.uf,
+							});
+							this.$refs.number.focus();
+						}else {
+							Object.assign(this.property, {
+								address: '',
+								number: '',
+								secondary_address: '',
+								neighborhood: '',
+								city: '',
+								state: '',
+							});
+						}
+					})
+					.catch(function (error) {
+						Object.assign(this.property, {
+							address: '',
+							number: '',
+							secondary_address: '',
+							neighborhood: '',
+							city: '',
+							state: '',
+						});
+					});
+		},
 		submit () {
 			this.$v.$touch();
 			if (this.$v.$invalid) {
@@ -249,7 +289,7 @@ export default {
 				}
 			} else {
 				let errorTimer = null;
-				this.saving = true;
+				this.loading = true;
 				api.create( this.route, this.property )
 					.then((response) => {
 						this.$notify({
@@ -261,11 +301,10 @@ export default {
 					})
 					.catch((e) => {
 						clearTimeout( errorTimer );
-						this.saving = false;
 						this.errors = e.response.data;
 						errorTimer = setTimeout(() => this.errors = null, 5000);
 					})
-					.then( () => this.saving = false );
+					.then( () => this.loading = false );
 			}
 		},
 	},

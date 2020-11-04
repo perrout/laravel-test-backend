@@ -125,7 +125,8 @@
 							title: response.data.message,
 							type: 'success'
 						});
-					});
+					})
+          			.finally(() => (this.loading = false));
 			},
 		},
 	}

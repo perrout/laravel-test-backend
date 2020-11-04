@@ -4,6 +4,7 @@ namespace App\Traits;
 
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 
 trait ApiRestController 
 {
@@ -17,11 +18,24 @@ trait ApiRestController
 	public function index( Request $request ) {
 		$query = $this->model::query();
 		$itemsPerPage = $request->has('itemsPerPage') ? $request->itemsPerPage : 10;
+		$hasSearch = $request->has('search') && !empty( $request->search );
+		$hasSearchColumn = $request->has('searchColumn') && !empty( $request->searchColumn );
 		$doesntHave = $request->has('doesntHave') && !empty( $request->doesntHave );
+		$doesntHaveIgnore = $request->has('doesntHaveIgnore') && !empty( $request->doesntHaveIgnore );
 		$orderBy = $request->has('sortDesc') && $request->sortDesc !== 'false' ? 'DESC' : 'ASC';
 		$sortBy = $request->has('sortBy') && !empty( $request->sortBy ) ? $request->sortBy : false;
 		if ( $doesntHave ) {
-			$query->doesntHave( $request->doesntHave );
+			if ( $doesntHaveIgnore ) {
+				$ignoreId = $request->doesntHaveIgnore;
+				$selecteQuery = $query->whereHas( $request->doesntHave, function (Builder $q) use ( $ignoreId ){
+					$q->where( 'id', '=', $ignoreId );
+				});
+				$selected = $selecteQuery->first();
+			}
+			$query->orDoesntHave( $request->doesntHave );
+		}
+		if ( $hasSearch && $hasSearchColumn ) {
+			$query->where( $request->searchColumn, 'like', '%' . $request->search . '%' );
 		}
         if ( $sortBy ) {
 			switch( $sortBy ) {
@@ -36,7 +50,12 @@ trait ApiRestController
 			}
             
 		}
-		return $this->successResponse( $query->paginate( $itemsPerPage ) );
+		$paginate = $query->paginate( $itemsPerPage );
+		if ( $doesntHaveIgnore && isset( $selected ) && !empty( $selected ) ) {
+			$paginate = collect( $paginate );
+			$paginate['data'] = collect($paginate['data'])->prepend( $selected->toArray() );
+		}
+		return $this->successResponse( $paginate );
 	}
 
 	public function show( $id ) {

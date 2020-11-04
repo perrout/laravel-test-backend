@@ -6,6 +6,7 @@
 			actionColor="secundary"
 			actionIcon="mdi-arrow-left"
 			actionText="Voltar"
+			:loading="loading"
 		/>
 		<v-card-text class="pt-0">
 			<div v-if="validationErrors">
@@ -46,6 +47,8 @@
 							ref="postal"
 							label="CEP"
 							v-model="property.postal"
+							v-mask="'#####-###'"
+            				@blur="onPostalChange"
 						></v-text-field>
 					</v-col>
 					<v-col
@@ -80,9 +83,9 @@
 						md="12"
 					>
 						<v-text-field
-							ref="address_note"
+							ref="secondary_address"
 							label="Complemento"
-							v-model="property.address_note"
+							v-model="property.secondary_address"
 						></v-text-field>
 					</v-col>
 					<v-col
@@ -149,9 +152,9 @@
 						<v-btn
 							color="primary"
 							type="submit"
-							:disabled="saving"
+							:disabled="loading"
 						>
-							<v-icon class="pr-1">mdi-content-save</v-icon>{{ saving ? 'Salvando...' : 'Salvar' }}
+							<v-icon class="pr-1">mdi-content-save</v-icon>{{ loading ? 'Salvando...' : 'Salvar' }}
 						</v-btn>
 					</v-col>
 				</v-row>
@@ -165,6 +168,7 @@
 	import { required, maxLength, email } from 'vuelidate/lib/validators';
 	import PageHeader from '../components/PageHeader';
 	import api from '../api/api';
+	import apiPostal from '../api/apiPostal';
 
 	export default {
 		components: {
@@ -182,7 +186,7 @@
 		},
 		data: () => ({
 			route: 'properties',
-			saving: false,
+			loading: false,
 			errors: false,
 			property: {
 				id: null,
@@ -190,7 +194,7 @@
 				postal: '',
 				address: '',
 				number: '',
-				address_note: '',
+				secondary_address: '',
 				neighborhood: '',
 				city: '',
 				state: '',
@@ -246,7 +250,43 @@
 					this.$router.push({ name: '404' });
 				});;
 		},
-		methods: {	
+		methods: {
+			onPostalChange () {
+				let postcode = this.$refs.postal.value;
+				apiPostal.get( postcode )
+						.then((response) => {
+							if ( !response.data.erro ) {
+								Object.assign(this.property, {
+									address: response.data.logradouro,
+									number: '',
+									secondary_address: '',
+									neighborhood: response.data.bairro,
+									city: response.data.localidade,
+									state: response.data.uf,
+								});
+								this.$refs.number.focus();
+							}else {
+								Object.assign(this.property, {
+									address: '',
+									number: '',
+									secondary_address: '',
+									neighborhood: '',
+									city: '',
+									state: '',
+								});
+							}
+						})
+						.catch(function (error) {
+							Object.assign(this.property, {
+								address: '',
+								number: '',
+								secondary_address: '',
+								neighborhood: '',
+								city: '',
+								state: '',
+							});
+						});
+			},	
 			submit () {
 				this.$v.$touch();
 				if (this.$v.$invalid) {
@@ -260,7 +300,7 @@
 					}
 				} else {
 					let errorTimer = null;
-					this.saving = true;
+					this.loading = true;
 					api.update( this.route, this.property.id, this.property )
 						.then((response) => {
 							this.$notify({
@@ -272,11 +312,10 @@
 						})
 						.catch((e) => {
 							clearTimeout( errorTimer );
-							this.saving = false;
 							this.errors = e.response.data;
 							errorTimer = setTimeout(() => this.errors = null, 5000);
 						})
-						.then( () => this.saving = false );
+						.then( () => this.loading = false );
 				}
 			},
 		},

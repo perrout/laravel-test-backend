@@ -6,6 +6,7 @@
 			actionColor="secundary"
 			actionIcon="mdi-arrow-left"
 			actionText="Voltar"
+			:loading="loading"
 		/>
 		<v-card-text class="pt-0">
 			<div v-if="validationErrors">
@@ -37,6 +38,7 @@
 							clearable
 							required
 							:error-messages="propertyErrors"
+        					:search-input.sync="propertySearch"
 							@input="$v.contract.property_id.$touch()"
 							@blur="$v.contract.property_id.$touch()"
 						></v-autocomplete>
@@ -147,9 +149,9 @@
 						<v-btn
 							color="primary"
 							type="submit"
-							:disabled="saving"
+							:disabled="loading"
 						>
-							<v-icon class="pr-1">mdi-content-save</v-icon>{{ saving ? 'Salvando...' : 'Salvar' }}
+							<v-icon class="pr-1">mdi-content-save</v-icon>{{ loading ? 'Salvando...' : 'Salvar' }}
 						</v-btn>
 					</v-col>
 				</v-row>
@@ -166,6 +168,7 @@ import api from '../api/api';
 
 export default {
 	components: {
+		Autocomplete,
 		PageHeader,
 	},
 	mixins: [ validationMixin ],
@@ -182,7 +185,7 @@ export default {
 	data: () => ({
 		route: 'contracts',
         properties: [],
-		saving: false,
+		loading: false,
 		errors: false,
 		contract: {
 			property_id: '',
@@ -191,7 +194,8 @@ export default {
 			email: '',
 			name: '',
 			description: '',
-		}
+		},
+		propertySearch: null
 	}),
 	computed: {
 		documentLabel() {
@@ -240,15 +244,41 @@ export default {
 		},
 	},
 	created() {
-		const params = {
-			doesntHave: 'contract',
+		this.fetchPropertiesFromApi();
+	},
+    watch: {
+		propertySearch( val ) {
+			if (this.loading) return;
+			this.fetchPropertiesFromApi( val );
 		}
-		api.all( 'properties', { params } )
-			.then((response) => {
-				this.properties = response.data.data;
-			});
 	},
 	methods: {
+		fetchPropertiesFromApi( val = false ) {
+			this.loading = true;
+			const params = {
+				doesntHave: 'contract',
+				sortBy: 'full_address',
+			}
+			if ( val ) {
+				Object.assign( params, {
+					search: val,
+					searchColumn: 'address',
+				});
+			}
+			api.all( 'properties', { params } )
+				.then((response) => {
+					this.properties = response.data.data;
+				})
+				.catch((err) => {
+					this.$notify({
+						group: 'message',
+						title: 'Ops! Ocorreu um problema ao coletar propriedades.',
+						type: 'error'
+					});
+				})
+				.finally(() => (this.loading = false));
+
+		},
 		submit () {
 			this.$v.$touch();
 			if (this.$v.$invalid) {
@@ -262,7 +292,7 @@ export default {
 				}
 			} else {
 				let errorTimer = null;
-				this.saving = true;
+				this.loading = true;
 				api.create( this.route, this.contract )
 					.then((response) => {
 						this.$notify({
@@ -274,11 +304,10 @@ export default {
 					})
 					.catch((e) => {
 						clearTimeout( errorTimer );
-						this.saving = false;
 						this.errors = e.response.data;
 						errorTimer = setTimeout(() => this.errors = null, 5000);
 					})
-					.then(() => this.saving = false);
+					.then(() => this.loading = false );
 			}
 		},
 	},

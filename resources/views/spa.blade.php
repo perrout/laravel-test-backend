@@ -12,6 +12,6 @@
         <app></app>
     </div>
 
-    <script src="{{ mix('js/app.js') . '?v122' }}"></script>
+    <script src="{{ mix('js/app.js') . '?b12' }}"></script>
 </body>
 </html>

@@ -9,12 +9,17 @@
 				<v-icon class="pr-1">{{ actionIcon }}</v-icon>{{ actionText }}
 			</v-btn>
 		</div>
+		<PageLoading :loading="loading" />
 		<v-divider class="py-2"></v-divider>
 	</div>
 </template>
 
 <script>
+	import PageLoading from '../components/PageLoading';
 	export default {
+		components: {
+			PageLoading,
+		},
 		props: {
 			title: {
 				type: String,
@@ -33,6 +38,9 @@
 				type: String
 			},
 			actionDarkMode: {
+				type: Boolean,
+			},
+			loading: {
 				type: Boolean,
 			},
 		},
