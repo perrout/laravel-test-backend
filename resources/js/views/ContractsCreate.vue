@@ -168,7 +168,6 @@ import api from '../api/api';
 
 export default {
 	components: {
-		Autocomplete,
 		PageHeader,
 	},
 	mixins: [ validationMixin ],
