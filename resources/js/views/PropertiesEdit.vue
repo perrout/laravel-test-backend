@@ -241,16 +241,25 @@
 			}
 		},
 		created() {
-			api.find( this.route, this.$route.params.id)
-				.then((response) => {
-					this.loaded = true;
-					this.property = response.data.data;
-				})
-				.catch((err) => {
-					this.$router.push({ name: '404' });
-				});;
+			this.fetchDataFromApi();
 		},
 		methods: {
+			fetchDataFromApi() {
+				this.loading = true;
+				api.find( this.route, this.$route.params.id )
+					.then((response) => {
+						this.property = response.data.data;
+					})
+					.catch((err) => {
+						this.$notify({
+							group: 'message',
+							title: 'Ops! A Propriedade não existe.',
+							type: 'error'
+						});
+						this.$router.push({ name: '404' });
+					})
+					.finally(() => (this.loading = false));
+			},
 			onPostalChange () {
 				let postcode = this.$refs.postal.value;
 				apiPostal.get( postcode )
