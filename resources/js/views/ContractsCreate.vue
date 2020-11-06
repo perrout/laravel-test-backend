@@ -160,6 +160,7 @@
 </template>
 
 <script>
+import _ from 'lodash';
 import { validationMixin } from 'vuelidate';
 import { required, maxLength, email } from 'vuelidate/lib/validators';
 import PageHeader from '../components/PageHeader';
@@ -256,7 +257,6 @@ export default {
     watch: {
 		propertySearch( value ) {
 			if ( this.loadingProperties ) return;
-			// if (this.contract.property_id === value) return
 			if ( value && ( !this.propertySelected || this.propertySelected.text !== value ) ) {
 				this.fetchPropertiesFromApi( value )
 			}
@@ -275,7 +275,7 @@ export default {
 				this.propertySelected = item;
 			}
 		},
-		async fetchPropertiesFromApi( value = false ) {
+		fetchPropertiesFromApi( value = false ) {
 			this.loadingProperties = true;
 			const params = {
 				doesntHave: 'contract',
@@ -287,7 +287,7 @@ export default {
 					searchColumn: 'address',
 				});
 			}
-			await api.all( 'properties', { params } )
+			api.all( 'properties', { params } )
 				.then((response) => {
 					if ( response.data && response.data.data ) {
 						let data = response.data.data;

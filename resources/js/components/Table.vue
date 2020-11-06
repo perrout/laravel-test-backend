@@ -92,8 +92,8 @@
 				}
 				try {
 					let response = await api.all( this.route, { params } );
-					let data = response.data;
-					if ( data ) {
+					if ( response && response.data ) {
+						let data = response.data;
 						this.tableItems = data.data;
 						this.tablePage = parseInt( data.current_page );
 						this.tablePageCount = parseInt( data.total );

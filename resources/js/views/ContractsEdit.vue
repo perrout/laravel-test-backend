@@ -35,9 +35,12 @@
 							:items="propertiesFound"
         					:search-input.sync="propertySearch"
 							:error-messages="propertyErrors"
+							:loading="loadingProperties"
+							:no-data-text="propertiesNotFound"
 							clearable
 							required
 							return-object
+						    hide-selected
 							@input="$v.contract.property_id.$touch()"
 							@blur="$v.contract.property_id.$touch()"
 						></v-autocomplete>
@@ -182,7 +185,6 @@ export default {
 		route: 'contracts',
         properties: [],
 		loading: false,
-		loadingData: false,
 		errors: false,
 		contract: {
 			id: null,
@@ -245,6 +247,9 @@ export default {
 				_properties = _properties.map( item => ( { text: item.full_address, value: item.id } ) );
 			}
 			return _properties;
+		},
+		propertiesNotFound() {
+			return this.loadingProperties ? 'Carregando propriedades...' : 'Nenhuma propriedade encontrada.';
 		}
 	},
 	created() {
@@ -288,32 +293,31 @@ export default {
 					searchColumn: 'address',
 				});
 			}
-			await api.all( 'properties', { params } )
-				.then((response) => {
-					if ( response.data && response.data.data ) {
-						let data = response.data.data;
-						if ( this.properties.length > 0 && data.length > 0 ) {
-							let union = _.unionBy( this.properties, data, 'id' );
-							this.properties = _.uniqBy( union, 'id' );
-						}else {
-							this.properties = data;
-						}
+			const response = await api.all( 'properties', { params } );
+			try {
+				if ( response.data && response.data.data ) {
+					let data = response.data.data;
+					if ( this.properties.length > 0 && data.length > 0 ) {
+						let union = _.unionBy( this.properties, data, 'id' );
+						this.properties = _.uniqBy( union, 'id' );
 					}else {
-						this.properties = [];
+						this.properties = data;
 					}
-				})
-				.catch((err) => {
-					this.$notify({
-						group: 'message',
-						title: 'Ops! Ocorreu um problema ao coletar propriedades.',
-						type: 'error'
-					});
-				})
-				.finally(() => ( this.loadingProperties = false ));
-
+				}else {
+					this.properties = [];
+				}
+			} catch (error) { 
+				console.log(error)
+				this.$notify({
+					group: 'message',
+					title: 'Ops! Ocorreu um problema ao coletar propriedades.',
+					type: 'error'
+				});
+			}
+			this.loadingProperties = false;
 		},
 		fetchDataFromApi() {
-			this.loadingData = true;
+			this.loading = true;
 			api.find( this.route, this.$route.params.id )
 				.then((response) => {
 					if ( response.data && response.data.data ) {
@@ -335,7 +339,7 @@ export default {
 					});
 					this.$router.push({ name: '404' });
 				})
-				.finally(() => (this.loadingData = false));
+				.finally(() => (this.loading = false));
 		},
 		submit () {
 			this.$v.$touch();
