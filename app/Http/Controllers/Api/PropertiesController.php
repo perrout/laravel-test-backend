@@ -10,5 +10,4 @@ class PropertiesController extends Controller
 	use ApiRestController;
 
     const MODEL = '\App\Models\Property';
-    const CREATE = '\App\Jobs\CreateProperty';
 }

@@ -30,15 +30,14 @@
 					>
 						<v-autocomplete
 							ref="property_id"
-							label="Selecione a propriedade"
-							v-model="contract.property_id"
-							:items="properties"
-							item-value="id"
-							item-text="full_address"
+							label="Busque a propriedade"
+							v-model="propertySelected"
+							:items="propertiesFound"
+        					:search-input.sync="propertySearch"
+							:error-messages="propertyErrors"
 							clearable
 							required
-							:error-messages="propertyErrors"
-        					:search-input.sync="propertySearch"
+							return-object
 							@input="$v.contract.property_id.$touch()"
 							@blur="$v.contract.property_id.$touch()"
 						></v-autocomplete>
@@ -187,14 +186,16 @@ export default {
 		loading: false,
 		errors: false,
 		contract: {
-			property_id: '',
+			property_id: null,
 			type: 'person',
 			document: '',
 			email: '',
 			name: '',
 			description: '',
 		},
-		propertySearch: null
+		propertySearch: null,
+		propertySelected: null,
+		loadingProperties: false
 	}),
 	computed: {
 		documentLabel() {
@@ -241,32 +242,64 @@ export default {
 				return errors;
 			}
 		},
+		propertiesFound() {
+			let _properties = this.properties;
+			if ( _properties && _properties.length ) {
+				_properties = _properties.map( item => ( { text: item.full_address, value: item.id } ) );
+			}
+			return _properties;
+		}
 	},
 	created() {
 		this.fetchPropertiesFromApi();
 	},
     watch: {
-		propertySearch( val ) {
-			if (this.loading) return;
-			this.fetchPropertiesFromApi( val );
-		}
+		propertySearch( value ) {
+			if ( this.loadingProperties ) return;
+			// if (this.contract.property_id === value) return
+			if ( value && ( !this.propertySelected || this.propertySelected.text !== value ) ) {
+				this.fetchPropertiesFromApi( value )
+			}
+		},
+		propertySelected( item ) {
+			this.setProperty( item );
+		},
 	},
 	methods: {
-		fetchPropertiesFromApi( val = false ) {
-			this.loading = true;
+		setProperty( item ) {
+			if ( !item ) {
+				this.contract = Object.assign( this.contract, { property_id: null } );
+				this.propertySelected = null;
+			} else if ( !this.propertySelected || this.propertySelected.value !== this.contract.property_id ) {
+				this.contract = Object.assign( this.contract, { property_id: item.value } );
+				this.propertySelected = item;
+			}
+		},
+		async fetchPropertiesFromApi( value = false ) {
+			this.loadingProperties = true;
 			const params = {
 				doesntHave: 'contract',
 				sortBy: 'full_address',
 			}
-			if ( val ) {
+			if ( value ) {
 				Object.assign( params, {
-					search: val,
+					search: value,
 					searchColumn: 'address',
 				});
 			}
-			api.all( 'properties', { params } )
+			await api.all( 'properties', { params } )
 				.then((response) => {
-					this.properties = response.data.data;
+					if ( response.data && response.data.data ) {
+						let data = response.data.data;
+						if ( this.properties.length > 0 && data.length > 0 ) {
+							let union = _.unionBy( this.properties, data, 'id' );
+							this.properties = _.uniqBy( union, 'id' );
+						}else {
+							this.properties = data;
+						}
+					}else {
+						this.properties = [];
+					}
 				})
 				.catch((err) => {
 					this.$notify({
@@ -275,7 +308,7 @@ export default {
 						type: 'error'
 					});
 				})
-				.finally(() => (this.loading = false));
+				.finally(() => ( this.loadingProperties = false ));
 
 		},
 		submit () {

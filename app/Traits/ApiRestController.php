@@ -8,11 +8,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 trait ApiRestController 
 {
-	protected $model, $create;
+	protected $model;
 
 	public function __construct() {
 		$this->model = self::MODEL;
-		$this->create = self::CREATE;
 	}
 
 	public function index( Request $request ) {
@@ -71,7 +70,6 @@ trait ApiRestController
 			if ( $v->fails() ) {
 				throw new Exception('ValidationException');
 			}
-			// $this->create::dispatch( $request->only( $this->model::fields() ) );
 			$item = $this->model::create( $request->only( $this->model::fields() ) );
 			return $this->successResponse( [ 'data' => $item, 'message' => 'Item adicionado com sucesso!' ], 201);
 		} catch (Exception $exception) {
