@@ -90,6 +90,7 @@
 							required
 							@input="$v.contract.document.$touch()"
 							@blur="$v.contract.document.$touch()"
+							v-mask="documentMask"
 						></v-text-field>
 					</v-col>
 					<v-col
@@ -202,6 +203,9 @@ export default {
 	computed: {
 		documentLabel() {
 			 return this.contract.type === 'person' ? 'CPF' : 'CNPJ';
+		},
+		documentMask() {
+			 return this.contract.type === 'person' ? '###.###.###-##' : '##.###.###/####-##';
 		},
 		propertyErrors () {
 			const errors = []
